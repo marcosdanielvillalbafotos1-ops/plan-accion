@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para que abra sin señal.
 // Red primero (así llegan las actualizaciones); si no hay señal o tarda más de 4 s, usa la copia guardada.
-const CACHE='plan-accion-v6';
+const CACHE='plan-accion-v7';
 const APP=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
 
 self.addEventListener('install',e=>{
