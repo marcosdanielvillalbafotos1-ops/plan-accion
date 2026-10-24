@@ -197,6 +197,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 .cant-row{display:grid;grid-template-columns:1fr 130px;gap:8px}
 .cant-row select{background:var(--g900);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--text);font:15px 'DM Sans',sans-serif;padding:11px 10px;outline:none;min-width:0}
 .cant-row select:focus{border-color:var(--gold)}
+.backup-rem{font-size:12.5px;padding:10px 12px;border-color:#f39c12;color:#fde7c0;margin-bottom:9px}
 .est-status{font-size:11px;margin-top:9px;line-height:1.4;color:var(--muted)}
 .est-status .ab{color:#f39c12;font-weight:600}
 .est-status .ve{color:#e74c3c;font-weight:600}
@@ -291,6 +292,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
     </div>
   </div>
   <div class="sec" style="padding-top:10px">
+    <div id="home-backup"></div>
     <button class="btn btn-green" onclick="goBoard()">📊 Tablero de pendientes <span class="home-badge" id="home-board-info"></span></button>
     <button class="btn btn-ghost" onclick="goHistory()">📋 Historial de visitas</button>
     <button class="btn btn-ghost btn-small" onclick="goConfig()">⚙️ Listas, Excel y respaldo</button>
@@ -1053,7 +1055,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.7","n":8,"fecha":"2026-10-24","novedades":"Archivos recibidos por WhatsApp: muestran solo su visita y se pueden compartir directo a la app"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.8","n":9,"fecha":"2026-10-24","novedades":"Más rápida con muchos datos, recordatorio de respaldo y correcciones del tablero"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1095,6 +1097,84 @@ const _copia=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
 
 async function idbGet(key){
   if(MODO_ARCHIVO)return _copia(_mem.get(key));
+  if(key==='dja_pa')return histGetAll();
+  return rawGet(key);
+}
+async function idbSet(key,val){
+  if(MODO_ARCHIVO){_mem.set(key,_copia(val));return;}
+  if(key==='dja_pa')return histSetAll(val);
+  return rawSet(key,val);
+}
+async function idbDel(key){
+  if(MODO_ARCHIVO){_mem.delete(key);return;}
+  if(key==='dja_pa')return histSetAll([]);
+  return rawDel(key);
+}
+
+/* Historial: cada visita se guarda por separado ("v:<id>") más un índice con el orden.
+   Así un cambio en la visita abierta reescribe solo esa visita (con sus fotos), no todo el historial:
+   con un año de recorridas (~80 MB) guardar pasaba de >1 s a lo que pesa una sola visita.
+   En memoria queda una copia del historial para no releerlo entero en cada pantalla. */
+const HIST_IDX='dja_pa_idx';
+let _hist=null;
+async function histCargar(){
+  if(_hist)return _hist;
+  const db=await openDB();
+  let idx=null; const porId={};
+  await new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readonly'), st=tx.objectStore(IDB_STORE);
+    st.get(HIST_IDX).onsuccess=e=>{idx=e.target.result;};
+    st.openCursor(IDBKeyRange.bound('v:','v:\uffff')).onsuccess=e=>{const c=e.target.result;if(c){porId[c.key.slice(2)]=c.value;c.continue();}};
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+  if(!idx){
+    // Formato anterior: todo el historial en una sola clave. Se pasa al nuevo una única vez.
+    const viejo=await rawGet('dja_pa');
+    _hist=Array.isArray(viejo)?viejo:[];
+    if(_hist.length){ await histEscribir(_hist,_hist); await rawDel('dja_pa'); }
+    return _hist;
+  }
+  _hist=idx.map(id=>porId[String(id)]).filter(Boolean);
+  return _hist;
+}
+// Escribe en una transacción: el índice y las visitas indicadas; borra las que ya no están
+async function histEscribir(lista,cambiadas){
+  const db=await openDB();
+  await new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite'), st=tx.objectStore(IDB_STORE);
+    const ids=new Set(lista.map(v=>String(v.id)));
+    st.put(lista.map(v=>v.id),HIST_IDX);
+    cambiadas.forEach(v=>st.put(v,'v:'+v.id));
+    st.openKeyCursor(IDBKeyRange.bound('v:','v:\uffff')).onsuccess=e=>{const c=e.target.result;if(c){if(!ids.has(c.key.slice(2)))st.delete(c.key);c.continue();}};
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+async function histGetAll(){
+  try{ return [...await histCargar()]; }catch(e){ return []; }
+}
+async function histSetAll(lista){
+  // Reemplazo completo (tablero, importar, restaurar, borrar): reescribe todo; son operaciones poco frecuentes
+  try{ _hist=[...lista]; await histEscribir(_hist,_hist); }catch(e){}
+}
+// Una sola visita (la abierta, en cada cambio): rápido aunque el historial sea grande
+async function histGetOne(id){
+  if(MODO_ARCHIVO)return ((await idbGet('dja_pa'))||[]).find(v=>v.id===id);
+  return (await histCargar()).find(v=>v.id===id);
+}
+async function histPutOne(rec){
+  if(MODO_ARCHIVO){const h=(await idbGet('dja_pa'))||[];const i=h.findIndex(v=>v.id===rec.id);if(i>=0)h[i]=rec;else h.unshift(rec);return idbSet('dja_pa',h);}
+  const h=await histCargar(); const i=h.findIndex(v=>v.id===rec.id);
+  if(i>=0)h[i]=rec; else h.unshift(rec);
+  try{ await histEscribir(h,[rec]); }catch(e){}
+}
+async function histDelOne(id){
+  if(MODO_ARCHIVO)return idbSet('dja_pa',((await idbGet('dja_pa'))||[]).filter(v=>v.id!==id));
+  const h=await histCargar(); const i=h.findIndex(v=>v.id===id);
+  if(i<0)return; h.splice(i,1);
+  try{ await histEscribir(h,[]); }catch(e){}
+}
+
+async function rawGet(key){
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1104,8 +1184,7 @@ async function idbGet(key){
     });
   }catch(e){return undefined;}
 }
-async function idbSet(key,val){
-  if(MODO_ARCHIVO){_mem.set(key,_copia(val));return;}
+async function rawSet(key,val){
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1116,8 +1195,7 @@ async function idbSet(key,val){
     });
   }catch(e){/* quota or unsupported — ignore, data stays in memory this session */}
 }
-async function idbDel(key){
-  if(MODO_ARCHIVO){_mem.delete(key);return;}
+async function rawDel(key){
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1133,7 +1211,7 @@ async function migrateOldStorage(){
   if(MODO_ARCHIVO)return;
   for(const key of ['dja_pa','dja_draft']){
     const existing=await idbGet(key);
-    if(existing===undefined){
+    if(existing===undefined||(Array.isArray(existing)&&!existing.length)){
       const old=localStorage.getItem(key);
       if(old){
         try{ await idbSet(key,JSON.parse(old)); }catch(e){}
@@ -1183,6 +1261,9 @@ function normalizeHistRecord(v){
 async function migrateHistory(){
   const hist=await idbGet('dja_pa');
   if(!hist||!hist.length)return;
+  // Solo si hay registros de versiones viejas: reescribir todo en cada arranque era lo que más lo demoraba
+  const viejo=t=>!t.uid||t.updatedAt===undefined||!t.fotosDespues||!t.estado||t.cierre===undefined;
+  if(!hist.some(v=>!v.iso||!v.checklist||[...v.tasks.ganaderia,...v.tasks.infraestructura].some(viejo)))return;
   hist.forEach(normalizeHistRecord);
   await idbSet('dja_pa',hist); // así los identificadores de tarea quedan fijos
 }
@@ -1198,7 +1279,10 @@ async function getSources(includeCurrent=true){
   const src=hist.map((v,i)=>({kind:'hist',estCode:v.estanciaCode,estName:v.estanciaName,visitDate:v.date,iso:v.iso||'',order:-i,tasks:v.tasks,checklist:v.checklist||{}}));
   if(includeCurrent){
     if(visitId&&sel){
-      src.push({kind:'cur',estCode:sel.code,estName:sel.name,visitDate,iso:visitISO,order:1e9,tasks,checklist});
+      // Una visita recién abierta sin nada propio no cuenta: los cambios (p. ej. desde el tablero)
+      // van a la versión guardada de cada tarea, no a una copia que nadie tocó
+      if(hasContent(currentVisitData()))
+        src.push({kind:'cur',estCode:sel.code,estName:sel.name,visitDate,iso:visitISO,order:1e9,tasks,checklist});
     }else{
       const d=await idbGet('dja_draft');
       if(d){
@@ -1289,6 +1373,8 @@ function fillDatalists(){
     if(!r||r.abierta) await upsertVisitInHistory(draft,true);
   }
   await consolidateOpenVisits();
+  // Pedir almacenamiento persistente: el celular no borra los datos de la app aunque le falte espacio
+  if(!MODO_ARCHIVO&&navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
   // Archivo compartido desde WhatsApp a la app instalada: lo dejó el service worker, se importa
   if(new URLSearchParams(location.search).has('importar')){
     history.replaceState(history.state,'',location.pathname);
@@ -1442,21 +1528,18 @@ function hasContent(d){
   return [...d.tasks.ganaderia,...d.tasks.infraestructura].some(propia)||Object.keys(d.checklist||{}).length>0;
 }
 async function upsertVisitInHistory(d,abierta,soloSiFalta){
-  const hist=(await idbGet('dja_pa'))||[];
   const id=d.visitId||legacyVisitId(d);
-  const i=hist.findIndex(v=>v.id===id);
-  if(soloSiFalta&&i>=0)return i;
+  const prev=await histGetOne(id);
+  if(soloSiFalta&&prev)return;
   if(!hasContent(d)){
     // Se borró todo lo de una visita abierta: no dejar un registro vacío
-    if(i>=0&&abierta){hist.splice(i,1);await idbSet('dja_pa',hist);}
-    return -1;
+    if(prev&&abierta)await histDelOne(id);
+    return;
   }
   const iso=d.visitISO||parseEsDate(d.visitDate);
   const rec={id,estanciaCode:d.sel.code,estanciaName:d.sel.name,date:d.visitDate,iso,
     tasks:normalizeTasks(JSON.parse(JSON.stringify(d.tasks)),id,iso),checklist:JSON.parse(JSON.stringify(d.checklist||{})),abierta};
-  if(i>=0)hist[i]={...hist[i],...rec}; else hist.unshift(rec);
-  await idbSet('dja_pa',hist);
-  return i;
+  await histPutOne(prev?{...prev,...rec}:rec);
 }
 let _histTimer=null;
 function syncHistory(){
@@ -1538,6 +1621,11 @@ async function refreshHomeBadge(){
   document.getElementById('home-board-info').textContent=ab?`${ab} abierta${ab>1?'s':''}${ve?` · ${ve} vencida${ve>1?'s':''}`:''}`:'';
   // Estado de cada estancia en su tarjeta: visita abierta y pendientes/vencidas
   const hist=(await idbGet('dja_pa'))||[];
+  // Los datos viven solo en este celular: recordar el respaldo si hay datos y pasó más de una semana
+  const ult=MODO_ARCHIVO?null:await idbGet('dja_ult_respaldo');
+  const dias=ult?daysBetween(ult,todayISO()):null;
+  document.getElementById('home-backup').innerHTML=(!MODO_ARCHIVO&&hist.length&&(dias===null||dias>7))
+    ?`<button class="btn btn-ghost backup-rem" onclick="exportBackup()">💾 ${dias===null?'Todavía no descargaste un respaldo':`Último respaldo hace ${dias} días`} — tocá para hacerlo</button>`:'';
   const lat=await latestTaskVersions();
   ['GRA','YCRT'].forEach(code=>{
     const ab=(visitId&&sel&&sel.code===code&&currentAbierta&&hasContent(currentVisitData()))?{date:visitDate}:hist.find(v=>v.abierta&&v.estanciaCode===code);
@@ -1552,7 +1640,8 @@ async function refreshHomeBadge(){
 /* ━━━━ ESTANCIA ━━━━ */
 // Tocar una estancia: sigue su visita abierta; si no hay, empieza una (trae los pendientes)
 async function enterEstancia(code,name){
-  if(visitId&&sel&&sel.code===code&&currentAbierta){openVisit();return;}
+  // Sigue la visita en pantalla solo si tiene algo propio; si no, se arma de nuevo con los pendientes al día
+  if(visitId&&sel&&sel.code===code&&currentAbierta&&hasContent(currentVisitData())){openVisit();return;}
   await flushHistory();
   const hist=(await idbGet('dja_pa'))||[];
   const ab=hist.find(v=>v.abierta&&v.estanciaCode===code);
@@ -1712,7 +1801,7 @@ function chkCrearTarea(k){
   // Tomar lo escrito aunque el campo todavía no haya perdido el foco
   const row=document.querySelectorAll('.chk-row')[k];
   const inp=row&&row.querySelector('.chk-obs input');
-  if(inp)setChkNota(k,inp.value);
+  if(inp&&inp.value.trim())setChkNota(k,inp.value);
   switchTab(chkCat(it));
   openModal(undefined,{desc:it+(checklist[it]&&checklist[it].nota?': '+checklist[it].nota:'')});
 }
@@ -2682,7 +2771,9 @@ async function exportBackup(){
   const data={app:'dja_plan_accion',version:2,exportado:new Date().toISOString(),
     hist:(await idbGet('dja_pa'))||[], draft:(await idbGet('dja_draft'))||null, cfg};
   dlBlob(new Blob([JSON.stringify(data)],{type:'application/json'}),`Respaldo-PlanAccion-${todayISO()}.json`);
+  await idbSet('dja_ult_respaldo',todayISO());
   toast('✓ Respaldo descargado');
+  refreshHomeBadge();
 }
 function triggerRestore(){document.getElementById('restore-input').click();}
 
