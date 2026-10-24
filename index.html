@@ -193,6 +193,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 .tab{padding:11px 4px;gap:4px}
 .tc-desc{white-space:pre-line}
 .foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.h-abierta{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:#f39c12;margin-left:4px}
+.open-visit{flex-direction:column;gap:2px;border-color:#f39c12;color:#fde7c0;margin:9px 0}
+.open-visit span{font-size:11px;font-weight:500;opacity:.75}
 .map-help{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:7px}
 .map-alt{display:block;margin:8px auto 0;background:none;border:none;color:var(--muted);font:12px 'DM Sans',sans-serif;text-decoration:underline;cursor:pointer}
 .tc-venc{border-color:rgba(231,76,60,.6)}
@@ -274,6 +277,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
   </div>
   <div class="sec" style="padding-top:6px">
     <button class="btn btn-gold" id="btn-nueva" disabled onclick="startVisit()">+ Nueva Visita</button>
+    <div id="home-open"></div>
     <button class="btn btn-green" onclick="goBoard()">📊 Tablero de pendientes <span class="home-badge" id="home-board-info"></span></button>
     <button class="btn btn-ghost" onclick="goHistory()">📋 Ver Historial</button>
     <button class="btn btn-ghost" onclick="goConfig()">⚙️ Listas, Excel y respaldo</button>
@@ -322,7 +326,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
       </button>
       <button class="btn btn-pdf" onclick="sharePDF(false)">📄 PDF</button>
     </div>
-    <button class="btn btn-green" style="margin-top:9px" onclick="saveVisit()">💾 Guardar en Historial</button>
+    <button class="btn btn-green" style="margin-top:9px" onclick="saveVisit()">✅ Finalizar visita</button>
     <button class="btn btn-share" style="margin-top:9px" onclick="shareHTML()">📤 Compartir Progreso</button>
   </div>
 </div>
@@ -1024,7 +1028,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.2","n":3,"fecha":"2026-10-24","novedades":"Botón para abrir Google Earth en el lugar de la tarea y subir la captura"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.3","n":4,"fecha":"2026-10-24","novedades":"Lo cargado se guarda solo en el historial; ya no hay botón para descartar visitas"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1239,8 +1243,12 @@ function fillDatalists(){
   refreshHomeBadge();
   showVersion();
   checkUpdate();
-  const draft=await idbGet('dja_draft');
+  let draft=await idbGet('dja_draft');
+  if(draft&&!hasContent(draft)){ await idbDel('dja_draft'); draft=null; } // visita vacía: nada que retomar
+  // Versiones anteriores dejaban la visita en curso solo en el borrador: pasarla al historial
+  if(draft) await upsertVisitInHistory(draft,true,true);
   if(draft) _pendingDraft=draft;
+  refreshHomeBadge();
   const total=d=>d.tasks.ganaderia.length+d.tasks.infraestructura.length;
   const plural=n=>`${n} tarea${n!==1?'s':''}`;
 
@@ -1248,21 +1256,21 @@ function fillDatalists(){
     const embId=EMBEDDED_DATA.visitId||legacyVisitId(EMBEDDED_DATA);
     if(!draft){ loadEmbeddedData(EMBEDDED_DATA); return; }
     const draftId=draft.visitId||legacyVisitId(draft);
-    // Hay una visita en progreso en este celular: no pisarla sin preguntar
+    // Hay una visita abierta en este celular: no pisarla sin preguntar
     showDraftChoice(
       draftId===embId
-        ? `Ya tenés cambios sin guardar de esta misma visita (${draft.sel.name}, ${plural(total(draft))}). ¿Seguís con tus cambios o volvés a cargar la versión del archivo?`
-        : `Tenés otra visita en progreso en ${draft.sel.name} (${plural(total(draft))}). Si abrís la del archivo (${EMBEDDED_DATA.sel.name}), esa visita en progreso se reemplaza al hacer cambios.`,
-      ['Continuar mi visita en progreso', resumeDraft],
-      ['Abrir la visita del archivo', ()=>{closeDraftModal();loadEmbeddedData(EMBEDDED_DATA);}]
+        ? `Ya tenés cambios propios de esta misma visita (${draft.sel.name}, ${plural(total(draft))}). ¿Seguís con tus cambios o cargás la versión del archivo?`
+        : `Tenés otra visita abierta en ${draft.sel.name} (${plural(total(draft))}). Queda guardada en el historial aunque abras la del archivo (${EMBEDDED_DATA.sel.name}).`,
+      ['Continuar mi visita', resumeDraft],
+      ['Abrir la visita del archivo', async()=>{closeDraftModal();await idbDel('dja_draft');loadEmbeddedData(EMBEDDED_DATA);}]
     );
     return;
   }
   if(draft){
     showDraftChoice(
-      `Tenés una visita en progreso en ${draft.sel.name} con ${plural(total(draft))} registrada${total(draft)!==1?'s':''}.`,
+      `Tenés una visita abierta en ${draft.sel.name} con ${plural(total(draft))}. Está guardada en el historial: podés seguirla ahora o más tarde.`,
       ['Continuar visita', resumeDraft],
-      ['Descartar y empezar de nuevo', discardDraft]
+      ['Ir al inicio', discardDraft]
     );
   }
 })();
@@ -1298,6 +1306,7 @@ async function applyUpdate(){
   if(document.getElementById('mdrop').classList.contains('open')){toast('Guardá o cerrá la tarea abierta antes de actualizar');return;}
   showLoading('Actualizando...');
   saveDraft();
+  await flushHistory();
   try{const reg=await navigator.serviceWorker.getRegistration(); if(reg)await reg.update();}catch(e){}
   setTimeout(()=>location.reload(),400);
 }
@@ -1347,10 +1356,45 @@ function loadEmbeddedData(d){
   toast(`✓ Visita importada — ${sel.name}`);
 }
 
-/* ━━━━ DRAFT ━━━━ */
+/* ━━━━ GUARDADO DE LA VISITA ━━━━
+   Cada cambio se guarda en el borrador (para retomar al abrir) y, además, en el historial
+   como visita "abierta". Así nada de lo cargado depende de apretar un botón para no perderse. */
+function hasContent(d){return !!d&&!!d.tasks&&(d.tasks.ganaderia.length+d.tasks.infraestructura.length>0||Object.keys(d.checklist||{}).length>0);}
+async function upsertVisitInHistory(d,abierta,soloSiFalta){
+  const hist=(await idbGet('dja_pa'))||[];
+  const id=d.visitId||legacyVisitId(d);
+  const i=hist.findIndex(v=>v.id===id);
+  if(soloSiFalta&&i>=0)return i;
+  if(!hasContent(d)){
+    // Se borró todo lo de una visita abierta: no dejar un registro vacío
+    if(i>=0&&abierta){hist.splice(i,1);await idbSet('dja_pa',hist);}
+    return -1;
+  }
+  const iso=d.visitISO||parseEsDate(d.visitDate);
+  const rec={id,estanciaCode:d.sel.code,estanciaName:d.sel.name,date:d.visitDate,iso,
+    tasks:normalizeTasks(JSON.parse(JSON.stringify(d.tasks)),id,iso),checklist:JSON.parse(JSON.stringify(d.checklist||{})),abierta};
+  if(i>=0)hist[i]={...hist[i],...rec}; else hist.unshift(rec);
+  await idbSet('dja_pa',hist);
+  return i;
+}
+let _histTimer=null;
+function syncHistory(){
+  clearTimeout(_histTimer);
+  const d=currentVisitData();
+  _histTimer=setTimeout(()=>{_histTimer=null;upsertVisitInHistory(d,true);},300);
+}
+async function flushHistory(){
+  if(!_histTimer)return;
+  clearTimeout(_histTimer); _histTimer=null;
+  if(visitId&&sel)await upsertVisitInHistory(currentVisitData(),true);
+}
+// Al salir de la app (o pasar a otra, como Earth o la cámara) no dejar nada pendiente de guardar
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushHistory();});
+
 function saveDraft(){
   if(!sel||!visitDate||!visitId)return;
   idbSet('dja_draft',currentVisitData());
+  syncHistory();
 }
 function resumeDraft(){
   const d=_pendingDraft; if(!d)return;
@@ -1358,7 +1402,11 @@ function resumeDraft(){
   closeDraftModal();
   openVisit();
 }
-function discardDraft(){idbDel('dja_draft');_pendingDraft=null;closeDraftModal();refreshHomeBadge();}
+// "Ir al inicio": la visita ya está en el historial como abierta; solo se deja de proponer al abrir
+async function discardDraft(){
+  if(_pendingDraft)await upsertVisitInHistory(_pendingDraft,true,true);
+  await idbDel('dja_draft');_pendingDraft=null;closeDraftModal();refreshHomeBadge();
+}
 function closeDraftModal(){document.getElementById('draft-mdrop').classList.remove('open');}
 
 /* ━━━━ SCREENS ━━━━ */
@@ -1372,11 +1420,22 @@ async function refreshHomeBadge(){
   const all=(await latestTaskVersions()).map(x=>x.task);
   const ab=all.filter(isOpen).length, ve=all.filter(isOverdue).length;
   document.getElementById('home-board-info').textContent=ab?`${ab} abierta${ab>1?'s':''}${ve?` · ${ve} vencida${ve>1?'s':''}`:''}`:'';
+  // Accesos directos a las visitas abiertas (guardadas pero sin finalizar)
+  const hist=(await idbGet('dja_pa'))||[];
+  document.getElementById('home-open').innerHTML=hist.map((v,i)=>v.abierta?`
+    <button class="btn btn-ghost open-visit" onclick="continueOpen(${i})">▶️ Continuar visita abierta · <strong>${esc(v.estanciaName)}</strong> <span>${v.date.split(',').slice(1).join(',').trim()} · ${v.tasks.ganaderia.length+v.tasks.infraestructura.length} tareas</span></button>`:'').join('');
+}
+async function continueOpen(i){
+  const hist=(await idbGet('dja_pa'))||[];
+  histItem=hist[i]; if(!histItem)return;
+  continueFromHistory();
 }
 
 /* ━━━━ ESTANCIA ━━━━ */
+// Estancia elegida en el inicio para una visita nueva (sel es la de la visita abierta)
+let selHome=null;
 function selEst(code,name){
-  sel={code,name};
+  selHome={code,name};
   document.querySelectorAll('.est-card').forEach(c=>c.classList.remove('sel'));
   document.getElementById('ec-'+code).classList.add('sel');
   document.getElementById('btn-nueva').disabled=false;
@@ -1384,7 +1443,16 @@ function selEst(code,name){
 
 /* ━━━━ VISIT ━━━━ */
 async function startVisit(){
-  if(!sel)return;
+  if(!selHome)return;
+  // Si hay otra visita abierta, avisar: no se pierde, queda en el historial para retomarla
+  const abierta=(visitId&&sel)?currentVisitData():await idbGet('dja_draft');
+  if(hasContent(abierta)){
+    const n=abierta.tasks.ganaderia.length+abierta.tasks.infraestructura.length;
+    if(!confirm(`Tenés una visita abierta en ${abierta.sel.name} (${n} tarea${n!==1?'s':''}).\nQueda guardada en el historial y la podés retomar desde el inicio.\n\n¿Empezar una visita nueva en ${selHome.name}?`))return;
+    clearTimeout(_histTimer); _histTimer=null;
+    await upsertVisitInHistory(abierta,true);
+  }
+  sel=selHome;
   const est=sel;
   // Control: lo que quedó abierto en visitas anteriores a esta estancia pasa a la visita nueva
   const prev=(await latestTaskVersions(false)).filter(x=>x.estCode===est.code&&isOpen(x.task));
@@ -2256,21 +2324,15 @@ function dlBlob(blob,filename){
 /* ━━━━ SAVE TO HISTORY ━━━━ */
 async function saveVisit(){
   if(!visitId||!sel){toast('No hay una visita abierta');return;}
-  const hist=(await idbGet('dja_pa'))||[];
-  // Una visita = un registro: si ya está en el historial se actualiza, no se duplica
-  const i=hist.findIndex(v=>v.id===visitId);
-  const copia=JSON.parse(JSON.stringify(tasks));
-  const cl=JSON.parse(JSON.stringify(checklist));
-  if(i>=0){
-    hist[i].tasks=copia; hist[i].checklist=cl; hist[i].iso=hist[i].iso||visitISO;
-  } else {
-    hist.unshift({id:visitId,estanciaCode:sel.code,estanciaName:sel.name,date:visitDate,iso:visitISO,tasks:copia,checklist:cl});
-  }
-  await idbSet('dja_pa',hist);
+  const d=currentVisitData();
+  if(!hasContent(d)){toast('La visita no tiene tareas ni checklist');return;}
+  // Finalizar: el registro del historial (uno por visita) pasa de "abierta" a finalizada
+  clearTimeout(_histTimer); _histTimer=null;
+  await upsertVisitInHistory(d,false);
   await idbDel('dja_draft');
-  // La visita queda cerrada: sus pendientes siguen vivos en el tablero y pasan a la próxima visita
+  // Sus pendientes siguen vivos en el tablero y pasan a la próxima visita
   visitId=null; tasks={ganaderia:[],infraestructura:[]}; checklist={};
-  toast(i>=0?'✓ Visita actualizada en el historial':'✓ Visita guardada');
+  toast('✓ Visita finalizada y guardada en el historial');
   setTimeout(goHome,900);
 }
 
@@ -2285,7 +2347,7 @@ async function renderHistory(){
     return `
     <div class="hitem" onclick="viewHist(${i})">
       <div class="hitem-top">
-        <div class="hitem-name">${esc(v.estanciaName)}</div>
+        <div class="hitem-name">${esc(v.estanciaName)}${v.abierta?' <span class="h-abierta">🟡 Abierta</span>':''}</div>
         <div class="hitem-date">${v.date.split(',').slice(0,2).join(',')}</div>
       </div>
       <div class="hitem-counts">
@@ -2320,6 +2382,12 @@ async function deleteHist(){
   if(!confirm(`¿Borrar del historial la visita a ${histItem.estanciaName} del ${histItem.date}?\nNo se puede deshacer.`))return;
   const hist=((await idbGet('dja_pa'))||[]).filter(v=>v.id!==histItem.id);
   await idbSet('dja_pa',hist);
+  if(visitId===histItem.id){
+    // Era la visita abierta: que no se vuelva a guardar sola
+    clearTimeout(_histTimer); _histTimer=null;
+    await idbDel('dja_draft');
+    visitId=null; tasks={ganaderia:[],infraestructura:[]}; checklist={};
+  }
   histItem=null;
   toast('✓ Visita borrada del historial');
   await goHistory();
