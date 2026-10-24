@@ -193,6 +193,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 .tab{padding:11px 4px;gap:4px}
 .tc-desc{white-space:pre-line}
 .foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cant-row{display:grid;grid-template-columns:1fr 130px;gap:8px}
+.cant-row select{background:var(--g900);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--text);font:15px 'DM Sans',sans-serif;padding:11px 10px;outline:none;min-width:0}
+.cant-row select:focus{border-color:var(--gold)}
 .est-status{font-size:11px;margin-top:9px;line-height:1.4;color:var(--muted)}
 .est-status .ab{color:#f39c12;font-weight:600}
 .est-status .ve{color:#e74c3c;font-weight:600}
@@ -448,8 +451,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
     </div>
 
     <div class="fld">
-      <label>Cantidad <span style="font-weight:400;opacity:.6">(opcional — ej: N° de cabezas)</span></label>
-      <input type="number" inputmode="numeric" id="f-cantidad" placeholder="Ej: 45">
+      <label>Cantidad <span style="font-weight:400;opacity:.6">(opcional)</span></label>
+      <div class="cant-row">
+        <input type="number" inputmode="decimal" step="any" id="f-cantidad" placeholder="Ej: 45">
+        <select id="f-unidad">
+          <option value="cabezas">cabezas</option>
+          <option value="kg">kg</option>
+          <option value="unidades">unidades</option>
+          <option value="litros">litros</option>
+          <option value="bolsas">bolsas</option>
+          <option value="ha">hectáreas</option>
+          <option value="m">metros</option>
+          <option value="fardos">fardos</option>
+        </select>
+      </div>
     </div>
 
     <div class="fld">
@@ -1038,7 +1053,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.4","n":5,"fecha":"2026-10-24","novedades":"Inicio más simple: tocá la estancia para cargar la visita. Se juntan las visitas repetidas, historial mejorado y el botón atrás ya no cierra la app"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.5","n":6,"fecha":"2026-10-24","novedades":"Cantidad con unidad de medida: kg, cabezas, unidades, litros, bolsas, hectáreas, metros, fardos"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1553,7 +1568,7 @@ function taskChips(t){
   return [
     locChip(t), estadoChip(t.estado), prioChip(t.prio),
     isOverdue(t)?`<span class="chip chip-alta">⚠️ Vencida hace ${daysBetween(t.fecha,todayISO())} d</span>`:'',
-    t.cantidad?`<span class="chip chip-loc">🔢 ${esc(String(t.cantidad))}</span>`:'',
+    t.cantidad?`<span class="chip chip-loc">🔢 ${esc(cantTexto(t))}</span>`:'',
     t.resp?`<span class="chip chip-resp">👤 ${esc(t.resp)}</span>`:'',
     t.fecha?`<span class="chip chip-date">📅 ${fmtDate(t.fecha)}</span>`:'',
     t.arrastrada&&t.alta?`<span class="chip chip-date">↩ desde ${fmtDate(t.alta)}</span>`:'',
@@ -1599,6 +1614,14 @@ function quickEstado(i,e){
   applyEstado(t,e);
   renderTasks(); saveDraft();
   toast(e==='Hecho'?'✓ Cerrada — tocá la tarea para sumar la foto del después':'✓ Marcada En curso');
+}
+
+// Unidad de la cantidad (kg de semilla, cabezas, etc.). Tareas viejas sin unidad muestran solo el número.
+const UNIDADES={cabezas:'cabezas',kg:'kg',unidades:'unidades',litros:'litros',bolsas:'bolsas',ha:'ha',m:'m',fardos:'fardos'};
+const ultimaUnidad={};
+function cantTexto(t){
+  const n=isNaN(+t.cantidad)?String(t.cantidad):(+t.cantidad).toLocaleString('es-PY');
+  return t.unidad?`${n} ${UNIDADES[t.unidad]||t.unidad}`:n;
 }
 
 function locChip(t){
@@ -1680,6 +1703,8 @@ function openModal(i,prefill){
   document.getElementById('f-resp').value=t?(t.resp||''):'';
   document.getElementById('f-potrero').value=t?(t.potrero||''):'';
   document.getElementById('f-cantidad').value=t?(t.cantidad||''):'';
+  // Unidad: la de la tarea; en una nueva, la última usada en esa área (o cabezas / unidades)
+  document.getElementById('f-unidad').value=(t&&t.unidad)||ultimaUnidad[tab]||(tab==='ganaderia'?'cabezas':'unidades');
   document.getElementById('f-fecha').value=t?(t.fecha||''):todayISO();
   document.getElementById('f-cierre').value=t?(t.cierre||''):'';
   document.getElementById('f-nota').value='';
@@ -1907,6 +1932,7 @@ function saveTask(){
     // Listas fijas: se guarda la forma ya registrada para que filtros y totales cierren
     potrero:potIn.trim()?canon(potList(retiro||sel.code),potIn):'',
     cantidad:document.getElementById('f-cantidad').value.trim(),
+    unidad:document.getElementById('f-cantidad').value.trim()?(ultimaUnidad[tab]=document.getElementById('f-unidad').value):'',
     fotos:[...currentFotos],
     fotosDespues:[...currentFotosDespues],
     mapas:[...currentMapas],
@@ -1979,7 +2005,7 @@ function buildMsg(name,date,t,cl){
       if(isOverdue(task))m+=` · ⚠️ VENCIDA`;
       if(task.retiro) m+=` · 📍 ${task.retiro}`;
       if(task.potrero)m+=` / ${task.potrero}`;
-      if(task.cantidad)m+=` · 🔢 ${task.cantidad}`;
+      if(task.cantidad)m+=` · 🔢 ${cantTexto(task)}`;
       if(task.resp)   m+=` · 👤 ${task.resp}`;
       if(task.fecha)  m+=` · 📅 ${fmtDate(task.fecha)}`;
       if(task.arrastrada&&task.alta)m+=` · ↩ desde ${fmtDate(task.alta)}`;
@@ -2187,7 +2213,7 @@ function buildJsPDF(name,date,t,cl){
       const pc=task.prio==='Alta'?[192,57,43]:task.prio==='Media'?[212,129,26]:[39,174,96];
       const loc=pdfSafe([task.retiro,task.potrero].filter(Boolean).join(' / '))||'—';
       const desde=task.arrastrada&&task.alta?`[desde ${fmtDate(task.alta)}] `:'';
-      const cantTxt=task.cantidad?` (${pdfSafe(String(task.cantidad))})`:'';
+      const cantTxt=task.cantidad?` (${pdfSafe(cantTexto(task))})`:'';
       const nf=(task.fotos||[]).length+(task.fotosDespues||[]).length+(task.mapas||[]).length;
       const venc=isOverdue(task);
       const est=pdfSafe(task.estado||'Pendiente')+(task.estado==='Hecho'&&task.cierre?`\n${fmtDate(task.cierre)}`:'')+(venc?'\nVENCIDA':'');
@@ -2314,7 +2340,7 @@ function generatePrintFallback(fromHistory){
     list.forEach(task=>{
       const pc=task.prio==='Alta'?'#c0392b':task.prio==='Media'?'#d4811a':'#27ae60';
       const loc=[task.retiro,task.potrero].filter(Boolean).join(' / ')||'—';
-      const descTxt=esc(task.desc)+(task.cantidad?` (${esc(String(task.cantidad))})`:'')+((task.fotos||[]).length||(task.mapas||[]).length?' 📷':'');
+      const descTxt=esc(task.desc)+(task.cantidad?` (${esc(cantTexto(task))})`:'')+((task.fotos||[]).length||(task.mapas||[]).length?' 📷':'');
       rows+=`<tr><td class="num">${num++}</td><td class="dc">${descTxt}</td><td>${esc(loc)}</td><td style="color:${pc};font-weight:600">${task.prio}<br><span style="font-weight:400;color:#888;font-size:9px">${esc(task.estado||'Pendiente')}</span></td><td>${esc(task.resp||'—')}</td><td>${task.fecha?fmtDate(task.fecha):'—'}</td></tr>`;
     });
   });
@@ -2609,10 +2635,10 @@ function buildXlsx(sheets){
 async function exportExcel(){
   const {src}=await getSources(true);
   const latest=pickLatest(src).sort((a,b)=>a.estCode.localeCompare(b.estCode)||(isOpen(b.task)-isOpen(a.task))||(a.task.fecha||'9').localeCompare(b.task.fecha||'9'));
-  const tareas=[['Estancia','Área','Tarea','Retiro','Potrero','Cantidad','Prioridad','Estado','Vencida','Días de atraso','Responsable','Fecha límite','Fecha alta','Fecha cierre','Días hasta cierre','Fotos antes','Fotos después','Notas de seguimiento','GPS','Última visita'],
+  const tareas=[['Estancia','Área','Tarea','Retiro','Potrero','Cantidad','Unidad','Prioridad','Estado','Vencida','Días de atraso','Responsable','Fecha límite','Fecha alta','Fecha cierre','Días hasta cierre','Fotos antes','Fotos después','Notas de seguimiento','GPS','Última visita'],
     ...latest.map(x=>{const t=x.task; return [
       x.estName, x.cat==='ganaderia'?'Ganadería':'Infraestructura', t.desc, t.retiro||'', t.potrero||'',
-      t.cantidad?(isNaN(+t.cantidad)?t.cantidad:+t.cantidad):'', t.prio||'', t.estado||'Pendiente',
+      t.cantidad?(isNaN(+t.cantidad)?t.cantidad:+t.cantidad):'', t.cantidad?(UNIDADES[t.unidad]||t.unidad||''):'', t.prio||'', t.estado||'Pendiente',
       isOverdue(t)?'Sí':'No', isOverdue(t)?daysBetween(t.fecha,todayISO()):'', t.resp||'',
       t.fecha?{d:t.fecha}:'', t.alta?{d:t.alta}:'', t.cierre?{d:t.cierre}:'',
       (t.cierre&&t.alta)?Math.max(0,daysBetween(t.alta,t.cierre)):'',
@@ -2622,7 +2648,7 @@ async function exportExcel(){
   const chk=[['Estancia','Fecha visita','Punto','Estado','Observación']];
   src.forEach(s=>Object.entries(s.checklist||{}).forEach(([k,c])=>chk.push([s.estName,s.iso?{d:s.iso}:s.visitDate,k,c.st==='ok'?'OK':'Observado',c.nota||''])));
   const blob=buildXlsx([
-    {name:'Tareas',rows:tareas,widths:[14,15,48,8,16,9,10,11,9,9,16,12,12,12,10,8,8,40,22,30]},
+    {name:'Tareas',rows:tareas,widths:[14,15,48,8,16,9,10,10,11,9,9,16,12,12,12,10,8,8,40,22,30]},
     {name:'Checklist',rows:chk,widths:[14,12,26,11,48]},
   ]);
   dlBlob(blob,`Control-Recorridas-${todayISO()}.xlsx`);

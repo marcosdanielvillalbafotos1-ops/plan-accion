@@ -1,6 +1,6 @@
 {
-  "v": "1.4",
-  "n": 5,
+  "v": "1.5",
+  "n": 6,
   "fecha": "2026-10-24",
-  "novedades": "Inicio más simple: tocá la estancia para cargar la visita. Se juntan las visitas repetidas, historial mejorado y el botón atrás ya no cierra la app"
+  "novedades": "Cantidad con unidad de medida: kg, cabezas, unidades, litros, bolsas, hectáreas, metros, fardos"
 }
