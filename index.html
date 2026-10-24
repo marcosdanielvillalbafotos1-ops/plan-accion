@@ -192,6 +192,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 /* CONTROL: pendientes, checklist, tablero */
 .tab{padding:11px 4px;gap:4px}
 .tc-desc{white-space:pre-line}
+.foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tc-venc{border-color:rgba(231,76,60,.6)}
 .tc-meta{font-size:11px;color:var(--muted);margin-top:7px}
 .grp-lbl{font-size:10px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin:8px 2px 8px}
@@ -443,7 +444,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 
     <div class="fld">
       <label>Fotos <span style="font-weight:400;opacity:.6">(opcional — podés agregar varias)</span></label>
-      <button class="foto-btn" type="button" id="foto-btn" onclick="triggerCamera()">📷 Sacar foto / Subir imagen</button>
+      <div class="foto-row">
+        <button class="foto-btn" type="button" id="foto-btn" onclick="pickPhoto('antes','camara')">📷 Sacar foto</button>
+        <button class="foto-btn" type="button" onclick="pickPhoto('antes','galeria')">🖼️ Galería</button>
+      </div>
       <div class="fotos-grid" id="fotos-grid"></div>
     </div>
 
@@ -473,7 +477,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
     <div class="fld" id="cierre-section" style="display:none">
       <label>Fecha de cierre</label>
       <input type="date" id="f-cierre">
-      <button class="foto-btn" type="button" style="margin-top:9px" onclick="triggerCameraDespues()">📸 Foto del después (evidencia del trabajo)</button>
+      <label style="margin-top:12px">Foto del después (evidencia del trabajo)</label>
+      <div class="foto-row">
+        <button class="foto-btn" type="button" onclick="pickPhoto('despues','camara')">📸 Sacar foto</button>
+        <button class="foto-btn" type="button" onclick="pickPhoto('despues','galeria')">🖼️ Galería</button>
+      </div>
       <div class="fotos-grid" id="despues-grid"></div>
     </div>
 
@@ -537,6 +545,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 
 <!-- Hidden file input for camera -->
 <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(event)" multiple="">
+<!-- capture: abre directo la cámara trasera (el selector de Android 14+ solo muestra la galería) -->
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
 <!-- Hidden file input for map photo -->
 <input type="file" id="map-photo-input" accept="image/*" style="display:none" onchange="handleMapPhoto(event)">
 
@@ -1010,7 +1020,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.0","n":1,"fecha":"2026-10-24","novedades":"Primera versión publicada: control de recorridas, tablero de pendientes, checklist, Excel y actualizaciones"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.1","n":2,"fecha":"2026-10-24","novedades":"Botón para sacar foto directo con la cámara (antes y después)"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1635,8 +1645,10 @@ function renderNotasList(){
 }
 
 /* ━━━━ PHOTO ━━━━ */
-function triggerCamera(){photoTarget='antes';document.getElementById('photo-input').click();}
-function triggerCameraDespues(){photoTarget='despues';document.getElementById('photo-input').click();}
+function pickPhoto(target,origen){
+  photoTarget=target;
+  document.getElementById(origen==='camara'?'camera-input':'photo-input').click();
+}
 
 async function handlePhoto(event){
   const files=Array.from(event.target.files); if(!files.length)return;
