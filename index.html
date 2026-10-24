@@ -193,6 +193,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 .tab{padding:11px 4px;gap:4px}
 .tc-desc{white-space:pre-line}
 .foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.est-status{font-size:11px;margin-top:9px;line-height:1.4;color:var(--muted)}
+.est-status .ab{color:#f39c12;font-weight:600}
+.est-status .ve{color:#e74c3c;font-weight:600}
+.btn-small{font-size:13px;padding:11px 14px;opacity:.85}
+.hflt{display:flex;gap:7px;margin-bottom:12px}
+.hflt button{flex:1;background:var(--g800);border:1.5px solid var(--border);color:var(--muted);border-radius:20px;padding:8px 6px;font:600 12px 'DM Sans',sans-serif;cursor:pointer}
+.hflt button.on{border-color:var(--gold);color:var(--gold-l);background:rgba(201,162,39,.12)}
+.h-fin{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:#2ecc71;margin-left:4px}
+.hitem-res{font-size:12px;color:var(--muted);margin-top:6px}
+.hitem-res b{color:var(--text);font-weight:600}
 .h-abierta{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:#f39c12;margin-left:4px}
 .open-visit{flex-direction:column;gap:2px;border-color:#f39c12;color:#fde7c0;margin:9px 0}
 .open-visit span{font-size:11px;font-weight:500;opacity:.75}
@@ -261,27 +271,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
     <div class="hero-sub">Don José Agroganadera S.A.</div>
   </div>
   <div class="sec">
-    <div class="sec-label">Seleccioná la Estancia</div>
+    <div class="sec-label">Tocá la estancia para cargar la visita</div>
     <div class="est-grid">
-      <div class="est-card" id="ec-GRA" onclick="selEst('GRA','Guazú Rendá')">
+      <div class="est-card" id="ec-GRA" onclick="enterEstancia('GRA','Guazú Rendá')">
         <div class="est-code">GRA</div>
         <div class="est-name">Guazú Rendá</div>
         <div class="est-retiros">DJ · LM · 2C · VO · GR</div>
+        <div class="est-status" id="es-GRA"></div>
       </div>
-      <div class="est-card" id="ec-YCRT" onclick="selEst('YCRT','Yacyretá')">
+      <div class="est-card" id="ec-YCRT" onclick="enterEstancia('YCRT','Yacyretá')">
         <div class="est-code">YCRT</div>
         <div class="est-name">Yacyretá</div>
         <div class="est-retiros">SNR · YCRT · MTL</div>
+        <div class="est-status" id="es-YCRT"></div>
       </div>
     </div>
   </div>
-  <div class="sec" style="padding-top:6px">
-    <button class="btn btn-gold" id="btn-nueva" disabled onclick="startVisit()">+ Nueva Visita</button>
-    <div id="home-open"></div>
+  <div class="sec" style="padding-top:10px">
     <button class="btn btn-green" onclick="goBoard()">📊 Tablero de pendientes <span class="home-badge" id="home-board-info"></span></button>
-    <button class="btn btn-ghost" onclick="goHistory()">📋 Ver Historial</button>
-    <button class="btn btn-ghost" onclick="goConfig()">⚙️ Listas, Excel y respaldo</button>
-    <button class="btn btn-ghost" style="margin-top:9px" onclick="showInstallInfo()">📲 Instalar en el celular</button>
+    <button class="btn btn-ghost" onclick="goHistory()">📋 Historial de visitas</button>
+    <button class="btn btn-ghost btn-small" onclick="goConfig()">⚙️ Listas, Excel y respaldo</button>
+    <button class="btn btn-ghost btn-small" id="btn-instalar" onclick="showInstallInfo()">📲 Instalar en el celular</button>
   </div>
   <div id="app-ver" style="text-align:center;font-size:11px;color:var(--muted);opacity:.7;padding:18px 0 24px" onclick="checkUpdate(true)"></div>
 </div>
@@ -353,7 +363,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
   </div>
   <div style="flex:1;overflow-y:auto;padding-top:14px" id="det-body"></div>
   <div class="bbar">
-    <button class="btn btn-gold" style="margin-bottom:9px" onclick="continueFromHistory()">✏️ Continuar editando</button>
+    <button class="btn btn-gold" id="btn-continuar-hist" style="margin-bottom:9px" onclick="continueFromHistory()">✏️ Continuar editando</button>
     <div class="share-row">
       <button class="btn btn-wa" onclick="shareWA(true)">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"></path></svg>
@@ -1028,7 +1038,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.3","n":4,"fecha":"2026-10-24","novedades":"Lo cargado se guarda solo en el historial; ya no hay botón para descartar visitas"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.4","n":5,"fecha":"2026-10-24","novedades":"Inicio más simple: tocá la estancia para cargar la visita. Se juntan las visitas repetidas, historial mejorado y el botón atrás ya no cierra la app"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1041,6 +1051,7 @@ let sel=null, tab='ganaderia', prio=null, retiro=null, estado=null;
 let tasks={ganaderia:[],infraestructura:[]};
 let visitDate='', histItem=null, currentFotos=[], currentMapas=[], currentNotas=[], currentGPS=null;
 let _pendingDraft=null, editingTaskIdx=null, visitId=null;
+let currentAbierta=true; // la visita en pantalla está abierta (false = corrigiendo una finalizada)
 let visitISO='', checklist={}, cfg=null, currentFotosDespues=[], photoTarget='antes';
 function newVisitId(){return 'v'+Date.now();}
 // Visitas exportadas con versiones viejas no traen id: se arma uno estable con estancia + fecha
@@ -1245,10 +1256,19 @@ function fillDatalists(){
   checkUpdate();
   let draft=await idbGet('dja_draft');
   if(draft&&!hasContent(draft)){ await idbDel('dja_draft'); draft=null; } // visita vacía: nada que retomar
-  // Versiones anteriores dejaban la visita en curso solo en el borrador: pasarla al historial
-  if(draft) await upsertVisitInHistory(draft,true,true);
-  if(draft) _pendingDraft=draft;
+  if(draft){
+    // El borrador puede tener lo último cargado antes de cerrar (o venir de una versión vieja): al historial
+    const hist=(await idbGet('dja_pa'))||[];
+    const r=hist.find(v=>v.id===(draft.visitId||legacyVisitId(draft)));
+    if(!r||r.abierta) await upsertVisitInHistory(draft,true);
+  }
+  await consolidateOpenVisits();
   refreshHomeBadge();
+  // Ya instalada (abierta desde el ícono): el botón de instalar no aporta nada
+  if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)document.getElementById('btn-instalar').style.display='none';
+  // Sin archivo compartido no hace falta preguntar nada: la visita abierta se ve en la tarjeta de su estancia
+  if(!EMBEDDED_DATA&&draft){ await idbDel('dja_draft'); draft=null; }
+  if(draft) _pendingDraft=draft;
   const total=d=>d.tasks.ganaderia.length+d.tasks.infraestructura.length;
   const plural=n=>`${n} tarea${n!==1?'s':''}`;
 
@@ -1266,14 +1286,31 @@ function fillDatalists(){
     );
     return;
   }
-  if(draft){
-    showDraftChoice(
-      `Tenés una visita abierta en ${draft.sel.name} con ${plural(total(draft))}. Está guardada en el historial: podés seguirla ahora o más tarde.`,
-      ['Continuar visita', resumeDraft],
-      ['Ir al inicio', discardDraft]
-    );
-  }
 })();
+
+// Una sola visita abierta por estancia. Junta las repetidas (las creaba la versión 1.3 al traer
+// pendientes): queda la más reciente con la última versión de cada tarea y todo el checklist.
+async function consolidateOpenVisits(){
+  const hist=(await idbGet('dja_pa'))||[];
+  const porEst={};
+  hist.forEach(v=>{if(v.abierta)(porEst[v.estanciaCode]=porEst[v.estanciaCode]||[]).push(v);});
+  let cambio=false;
+  Object.values(porEst).forEach(lista=>{
+    if(lista.length<2)return;
+    lista.sort((a,b)=>(b.iso||'').localeCompare(a.iso||'')||(hist.indexOf(a)-hist.indexOf(b)));
+    const queda=lista[0];
+    const ultimas=pickLatest(lista.map(v=>({tasks:v.tasks,iso:v.iso,order:-hist.indexOf(v),estCode:v.estanciaCode})));
+    queda.tasks={ganaderia:[],infraestructura:[]};
+    ultimas.forEach(x=>queda.tasks[x.cat].push(x.task));
+    queda.checklist=queda.checklist||{};
+    lista.slice(1).forEach(v=>{
+      Object.entries(v.checklist||{}).forEach(([k,c])=>{if(!queda.checklist[k])queda.checklist[k]=c;});
+      hist.splice(hist.indexOf(v),1);
+    });
+    cambio=true;
+  });
+  if(cambio)await idbSet('dja_pa',hist);
+}
 
 /* ━━━━ ACTUALIZACIONES ━━━━ */
 function publicada(){return /^https?:$/.test(location.protocol)&&APP_VERSION.v!=='dev';}
@@ -1333,7 +1370,7 @@ function showDraftChoice(text,[labelA,fnA],[labelB,fnB]){
 }
 
 function setCurrentVisit(d){
-  sel=d.sel; visitDate=d.visitDate;
+  sel=d.sel; visitDate=d.visitDate; currentAbierta=true;
   visitId=d.visitId||legacyVisitId(d);
   visitISO=d.visitISO||parseEsDate(d.visitDate);
   tasks=normalizeTasks(JSON.parse(JSON.stringify(d.tasks)),visitId,visitISO);
@@ -1359,7 +1396,13 @@ function loadEmbeddedData(d){
 /* ━━━━ GUARDADO DE LA VISITA ━━━━
    Cada cambio se guarda en el borrador (para retomar al abrir) y, además, en el historial
    como visita "abierta". Así nada de lo cargado depende de apretar un botón para no perderse. */
-function hasContent(d){return !!d&&!!d.tasks&&(d.tasks.ganaderia.length+d.tasks.infraestructura.length>0||Object.keys(d.checklist||{}).length>0);}
+// Tiene algo propio: una tarea nueva, una traída de antes que se tocó en esta visita, o el checklist.
+// (Las traídas sin tocar no cuentan: abrir una estancia y salir no crea una visita.)
+function propia(t){return !t.arrastrada||!t.carriedAt||(t.updatedAt||0)>t.carriedAt;}
+function hasContent(d){
+  if(!d||!d.tasks)return false;
+  return [...d.tasks.ganaderia,...d.tasks.infraestructura].some(propia)||Object.keys(d.checklist||{}).length>0;
+}
 async function upsertVisitInHistory(d,abierta,soloSiFalta){
   const hist=(await idbGet('dja_pa'))||[];
   const id=d.visitId||legacyVisitId(d);
@@ -1381,12 +1424,13 @@ let _histTimer=null;
 function syncHistory(){
   clearTimeout(_histTimer);
   const d=currentVisitData();
-  _histTimer=setTimeout(()=>{_histTimer=null;upsertVisitInHistory(d,true);},300);
+  const ab=currentAbierta;
+  _histTimer=setTimeout(()=>{_histTimer=null;upsertVisitInHistory(d,ab);},300);
 }
 async function flushHistory(){
   if(!_histTimer)return;
   clearTimeout(_histTimer); _histTimer=null;
-  if(visitId&&sel)await upsertVisitInHistory(currentVisitData(),true);
+  if(visitId&&sel)await upsertVisitInHistory(currentVisitData(),currentAbierta);
 }
 // Al salir de la app (o pasar a otra, como Earth o la cámara) no dejar nada pendiente de guardar
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushHistory();});
@@ -1410,6 +1454,40 @@ async function discardDraft(){
 function closeDraftModal(){document.getElementById('draft-mdrop').classList.remove('open');}
 
 /* ━━━━ SCREENS ━━━━ */
+/* ━━━━ BOTÓN ATRÁS DEL CELULAR ━━━━
+   Mientras haya algo a donde volver (una ventana abierta o una pantalla que no sea el inicio) se deja
+   una entrada en el historial del navegador; el botón atrás la consume y la app vuelve un paso.
+   Desde el inicio, sin nada abierto, el botón atrás sale de la app como siempre. */
+const OVERLAYS=[
+  ['lightbox',()=>closeLightbox()],['map-editor',()=>closeMapEditor()],['live-map-screen',()=>closeLiveMap()],
+  ['mdrop',()=>closeModal()],['install-mdrop',()=>document.getElementById('install-mdrop').classList.remove('open')],
+  ['draft-mdrop',()=>closeDraftModal()],
+];
+const PANTALLA_PADRE={'s-visit':'s-home','s-summary':'s-visit','s-history':'s-home','s-detail':'s-history','s-board':'s-home','s-config':'s-home'};
+function overlayAbierto(){return OVERLAYS.find(([id])=>document.getElementById(id).classList.contains('open'));}
+function pantallaActual(){const s=document.querySelector('.screen.active');return s?s.id:'s-home';}
+function puedeVolver(){return !!overlayAbierto()||pantallaActual()!=='s-home';}
+let _ignorarPop=false;
+function navSync(){
+  const guard=history.state&&history.state.guard;
+  if(puedeVolver()){ if(!guard)history.pushState({guard:true},''); }
+  else if(guard){ _ignorarPop=true; history.back(); } // se volvió al inicio con la flecha de la app
+}
+window.addEventListener('popstate',()=>{
+  if(_ignorarPop){_ignorarPop=false;return;}
+  const ov=overlayAbierto();
+  if(ov) ov[1]();
+  else{
+    const p=PANTALLA_PADRE[pantallaActual()];
+    if(p==='s-home')goHome(); else if(p==='s-history')goHistory(); else if(p)showScreen(p);
+  }
+  setTimeout(navSync,0);
+});
+// Cualquier pantalla o ventana que se abra o cierre actualiza la entrada del botón atrás
+let _navT=null;
+new MutationObserver(()=>{clearTimeout(_navT);_navT=setTimeout(navSync,30);})
+  .observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -1420,46 +1498,40 @@ async function refreshHomeBadge(){
   const all=(await latestTaskVersions()).map(x=>x.task);
   const ab=all.filter(isOpen).length, ve=all.filter(isOverdue).length;
   document.getElementById('home-board-info').textContent=ab?`${ab} abierta${ab>1?'s':''}${ve?` · ${ve} vencida${ve>1?'s':''}`:''}`:'';
-  // Accesos directos a las visitas abiertas (guardadas pero sin finalizar)
+  // Estado de cada estancia en su tarjeta: visita abierta y pendientes/vencidas
   const hist=(await idbGet('dja_pa'))||[];
-  document.getElementById('home-open').innerHTML=hist.map((v,i)=>v.abierta?`
-    <button class="btn btn-ghost open-visit" onclick="continueOpen(${i})">▶️ Continuar visita abierta · <strong>${esc(v.estanciaName)}</strong> <span>${v.date.split(',').slice(1).join(',').trim()} · ${v.tasks.ganaderia.length+v.tasks.infraestructura.length} tareas</span></button>`:'').join('');
-}
-async function continueOpen(i){
-  const hist=(await idbGet('dja_pa'))||[];
-  histItem=hist[i]; if(!histItem)return;
-  continueFromHistory();
+  const lat=await latestTaskVersions();
+  ['GRA','YCRT'].forEach(code=>{
+    const ab=(visitId&&sel&&sel.code===code&&currentAbierta&&hasContent(currentVisitData()))?{date:visitDate}:hist.find(v=>v.abierta&&v.estanciaCode===code);
+    const T=lat.filter(x=>x.estCode===code).map(x=>x.task);
+    const pend=T.filter(isOpen).length, venc=T.filter(isOverdue).length;
+    document.getElementById('es-'+code).innerHTML=
+      (ab?`<span class="ab">🟡 Visita abierta · ${esc(ab.date.split(',').slice(1).join(',').trim().replace(/ de \d{4}$/,''))}</span>`:'Tocá para iniciar visita')+
+      (pend?`<br>${pend} pendiente${pend>1?'s':''}${venc?` · <span class="ve">${venc} vencida${venc>1?'s':''}</span>`:''}`:'');
+  });
 }
 
 /* ━━━━ ESTANCIA ━━━━ */
-// Estancia elegida en el inicio para una visita nueva (sel es la de la visita abierta)
-let selHome=null;
-function selEst(code,name){
-  selHome={code,name};
-  document.querySelectorAll('.est-card').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('ec-'+code).classList.add('sel');
-  document.getElementById('btn-nueva').disabled=false;
+// Tocar una estancia: sigue su visita abierta; si no hay, empieza una (trae los pendientes)
+async function enterEstancia(code,name){
+  if(visitId&&sel&&sel.code===code&&currentAbierta){openVisit();return;}
+  await flushHistory();
+  const hist=(await idbGet('dja_pa'))||[];
+  const ab=hist.find(v=>v.abierta&&v.estanciaCode===code);
+  if(ab){histItem=ab;continueFromHistory(true);return;}
+  await startVisit({code,name});
 }
 
 /* ━━━━ VISIT ━━━━ */
-async function startVisit(){
-  if(!selHome)return;
-  // Si hay otra visita abierta, avisar: no se pierde, queda en el historial para retomarla
-  const abierta=(visitId&&sel)?currentVisitData():await idbGet('dja_draft');
-  if(hasContent(abierta)){
-    const n=abierta.tasks.ganaderia.length+abierta.tasks.infraestructura.length;
-    if(!confirm(`Tenés una visita abierta en ${abierta.sel.name} (${n} tarea${n!==1?'s':''}).\nQueda guardada en el historial y la podés retomar desde el inicio.\n\n¿Empezar una visita nueva en ${selHome.name}?`))return;
-    clearTimeout(_histTimer); _histTimer=null;
-    await upsertVisitInHistory(abierta,true);
-  }
-  sel=selHome;
-  const est=sel;
+async function startVisit(est){
+  sel=est;
   // Control: lo que quedó abierto en visitas anteriores a esta estancia pasa a la visita nueva
   const prev=(await latestTaskVersions(false)).filter(x=>x.estCode===est.code&&isOpen(x.task));
   visitId=newVisitId(); visitISO=todayISO(); visitDate=fmtLongDate(new Date());
-  tasks={ganaderia:[],infraestructura:[]}; checklist={};
+  tasks={ganaderia:[],infraestructura:[]}; checklist={}; currentAbierta=true;
+  const ahora=Date.now();
   prev.sort((a,b)=>(a.task.fecha||'9').localeCompare(b.task.fecha||'9'))
-      .forEach(x=>tasks[x.cat].push({...JSON.parse(JSON.stringify(x.task)),arrastrada:true}));
+      .forEach(x=>tasks[x.cat].push({...JSON.parse(JSON.stringify(x.task)),arrastrada:true,carriedAt:ahora}));
   openVisit();
   saveDraft();
   if(prev.length)toast(`↩ Se trajeron ${prev.length} pendiente${prev.length>1?'s':''} de visitas anteriores`);
@@ -2337,24 +2409,30 @@ async function saveVisit(){
 }
 
 /* ━━━━ HISTORY ━━━━ */
+let histFiltro='';
+function setHistFiltro(f){histFiltro=f;renderHistory();}
 async function renderHistory(){
+  await flushHistory();
   const hist=(await idbGet('dja_pa'))||[];
   const el=document.getElementById('hlist');
-  if(!hist.length){el.innerHTML=`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Sin visitas guardadas aún</div></div>`;return;}
-  el.innerHTML=hist.map((v,i)=>{
+  const filtro=`<div class="hflt">${[['','Todas'],['GRA','Guazú Rendá'],['YCRT','Yacyretá']].map(([k,l])=>`<button class="${histFiltro===k?'on':''}" onclick="setHistFiltro('${k}')">${l}</button>`).join('')}</div>`;
+  // Más nuevas arriba; las abiertas primero
+  const lista=hist.map((v,i)=>[v,i]).filter(([v])=>!histFiltro||v.estanciaCode===histFiltro)
+    .sort(([a],[b])=>(b.abierta?1:0)-(a.abierta?1:0)||(b.iso||'').localeCompare(a.iso||''));
+  if(!lista.length){el.innerHTML=filtro+`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Sin visitas guardadas aún</div></div>`;return;}
+  el.innerHTML=filtro+lista.map(([v,i])=>{
     const all=[...v.tasks.ganaderia,...v.tasks.infraestructura];
-    const hechas=all.filter(t=>t.estado==='Hecho').length;
+    const nuevas=all.filter(t=>!t.arrastrada).length, traidas=all.length-nuevas;
+    const hechas=all.filter(t=>t.estado==='Hecho').length, pend=all.filter(isOpen).length;
+    const chk=Object.values(v.checklist||{}), obs=chk.filter(c=>c.st==='obs').length;
     return `
     <div class="hitem" onclick="viewHist(${i})">
       <div class="hitem-top">
-        <div class="hitem-name">${esc(v.estanciaName)}${v.abierta?' <span class="h-abierta">🟡 Abierta</span>':''}</div>
-        <div class="hitem-date">${v.date.split(',').slice(0,2).join(',')}</div>
+        <div class="hitem-name">${esc(v.estanciaName)}${v.abierta?' <span class="h-abierta">🟡 Abierta</span>':' <span class="h-fin">✓ Finalizada</span>'}</div>
+        <div class="hitem-date">${v.date.split(',').slice(1).join(',').trim()}</div>
       </div>
-      <div class="hitem-counts">
-        <div class="hitem-count">🐄 <strong>${v.tasks.ganaderia.length}</strong></div>
-        <div class="hitem-count">🏗️ <strong>${v.tasks.infraestructura.length}</strong></div>
-        <div class="hitem-count">✅ <strong>${hechas}/${all.length}</strong> hechas</div>
-      </div>
+      <div class="hitem-res"><b>${all.length}</b> tarea${all.length!==1?'s':''} (${nuevas} nueva${nuevas!==1?'s':''}${traidas?`, ${traidas} de antes`:''}) · <b>${hechas}</b> hecha${hechas!==1?'s':''} · <b>${pend}</b> pendiente${pend!==1?'s':''}</div>
+      ${chk.length?`<div class="hitem-res">Checklist: ${chk.length-obs} OK${obs?` · <b style="color:#f39c12">${obs} observado${obs>1?'s':''}</b>`:''}</div>`:''}
     </div>`;}).join('');
 }
 
@@ -2363,18 +2441,21 @@ async function viewHist(idx){
   histItem=hist[idx];
   if(!histItem)return;
   document.getElementById('det-title').textContent=histItem.estanciaName;
-  document.getElementById('det-date').textContent=histItem.date;
+  document.getElementById('det-date').textContent=histItem.date+(histItem.abierta?' · 🟡 Abierta':' · ✓ Finalizada');
+  document.getElementById('btn-continuar-hist').textContent=histItem.abierta?'✏️ Continuar visita':'✏️ Corregir visita';
   renderSummaryIn(histItem.tasks,'det-body',histItem.checklist);
   showScreen('s-detail');
 }
 
-function continueFromHistory(){
+async function continueFromHistory(desdeEstancia){
   if(!histItem)return;
+  await flushHistory();
   setCurrentVisit({visitId:histItem.id,sel:{code:histItem.estanciaCode,name:histItem.estanciaName},
     visitDate:histItem.date,visitISO:histItem.iso,tasks:histItem.tasks,checklist:histItem.checklist});
+  // Editar una visita finalizada la corrige, pero no la vuelve a abrir
+  currentAbierta=histItem.abierta!==false;
   openVisit();
-  saveDraft();
-  toast('✓ Visita cargada — podés seguir editando');
+  if(!desdeEstancia)toast(currentAbierta?'✓ Visita cargada — podés seguir editando':'✓ Corrigiendo una visita finalizada');
 }
 
 async function deleteHist(){

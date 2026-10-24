@@ -1,6 +1,6 @@
 {
-  "v": "1.3",
-  "n": 4,
+  "v": "1.4",
+  "n": 5,
   "fecha": "2026-10-24",
-  "novedades": "Lo cargado se guarda solo en el historial; ya no hay botón para descartar visitas"
+  "novedades": "Inicio más simple: tocá la estancia para cargar la visita. Se juntan las visitas repetidas, historial mejorado y el botón atrás ya no cierra la app"
 }
