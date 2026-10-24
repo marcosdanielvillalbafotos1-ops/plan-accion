@@ -193,6 +193,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
 .tab{padding:11px 4px;gap:4px}
 .tc-desc{white-space:pre-line}
 .foto-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.map-help{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:7px}
+.map-alt{display:block;margin:8px auto 0;background:none;border:none;color:var(--muted);font:12px 'DM Sans',sans-serif;text-decoration:underline;cursor:pointer}
 .tc-venc{border-color:rgba(231,76,60,.6)}
 .tc-meta{font-size:11px;color:var(--muted);margin-top:7px}
 .grp-lbl{font-size:10px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin:8px 2px 8px}
@@ -452,9 +454,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--g900);color:var(--text);m
     </div>
 
     <div class="fld">
-      <label>Mapa satelital <span style="font-weight:400;opacity:.6">(opcional — marcá y medí sobre la imagen)</span></label>
-      <button class="foto-btn" type="button" onclick="openLiveMap()">🗺️ Abrir mapa satelital en vivo</button>
-      <button class="foto-btn" type="button" style="margin-top:7px;opacity:.75" onclick="triggerMapPhoto()">🖼️ o subir una foto de mapa ya sacada</button>
+      <label>Mapa satelital <span style="font-weight:400;opacity:.6">(opcional)</span></label>
+      <button class="foto-btn" type="button" onclick="openEarth()" style="color:var(--gold-l);border-style:solid">🌍 Abrir en Google Earth</button>
+      <div class="map-help">1) En Earth medí o marcá lo que haga falta · 2) Sacá captura de pantalla · 3) Volvé acá y subila 👇</div>
+      <button class="foto-btn" type="button" style="margin-top:7px" onclick="triggerMapPhoto()">🖼️ Subir captura de Earth (o foto de mapa)</button>
+      <button class="map-alt" type="button" onclick="openLiveMap()">o usar el mapa simple de la app</button>
       <div class="fotos-grid" id="mapas-grid"></div>
     </div>
 
@@ -1020,7 +1024,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.1","n":2,"fecha":"2026-10-24","novedades":"Botón para sacar foto directo con la cámara (antes y después)"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.2","n":3,"fecha":"2026-10-24","novedades":"Botón para abrir Google Earth en el lugar de la tarea y subir la captura"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1418,6 +1422,7 @@ function taskChips(t){
     n(t.fotosDespues)?`<span class="chip chip-baja">📸 ${n(t.fotosDespues)} después</span>`:'',
     n(t.mapas)?`<span class="chip chip-loc">📐 ${n(t.mapas)} mapa${n(t.mapas)>1?'s':''}</span>`:'',
     t.gps?`<a class="chip chip-loc" href="https://www.google.com/maps?q=${t.gps.lat},${t.gps.lon}" target="_blank" onclick="event.stopPropagation()">📍 GPS</a>`:'',
+    t.gps?`<a class="chip chip-loc" href="${earthUrl(t.gps)}" target="_blank" onclick="event.stopPropagation()">🌍 Earth</a>`:'',
   ].join('');
 }
 function taskPhotos(t){
@@ -1615,6 +1620,7 @@ function useMyLocation(){
   navigator.geolocation.getCurrentPosition(
     pos=>{
       currentGPS={lat:+pos.coords.latitude.toFixed(6),lon:+pos.coords.longitude.toFixed(6)};
+      lastGPS=currentGPS;
       hideLoading(); renderGPSField(); toast('✓ Ubicación guardada');
     },
     err=>{hideLoading();alert(gpsErrorMsg(err));},
@@ -2545,6 +2551,18 @@ async function ensureLeaflet(){
     return !!(window.L && window.leafletImage);
   }catch(e){return false;}
 }
+/* Google Earth: se abre la app de Earth (o Earth web si no está instalada) parada en el lugar.
+   El trabajo se hace allá y vuelve como captura de pantalla adjunta a la tarea. */
+let lastGPS=null;
+function earthUrl(g){return g?`https://earth.google.com/web/@${g.lat},${g.lon},0a,700d,35y,0h,0t,0r`:'https://earth.google.com/web/';}
+function openEarth(){
+  // Sin esperas antes de abrir: si se abre después de buscar el GPS, el celular lo bloquea como ventana emergente.
+  // Sin coordenadas, Earth abre en su vista general y se ubica con su propio botón de ubicación.
+  const g=currentGPS||lastGPS;
+  window.open(earthUrl(g),'_blank');
+  if(!g)toast('En Earth tocá el botón de ubicación para ir a donde estás');
+}
+
 async function openLiveMap(){
   showLoading('Cargando mapa satelital...');
   const ok=await ensureLeaflet();
