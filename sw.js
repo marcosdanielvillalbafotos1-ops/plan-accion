@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para que abra sin señal.
 // Red primero (así llegan las actualizaciones); si no hay señal o tarda más de 4 s, usa la copia guardada.
-const CACHE='plan-accion-v7';
+const CACHE='plan-accion-v8';
 const APP=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-maskable-512.png'];
 
 self.addEventListener('install',e=>{
@@ -21,6 +21,21 @@ function conLimite(p,ms){
 }
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
+  // Archivo compartido a la app desde WhatsApp (share_target del manifest): se guarda y la app lo importa
+  if(e.request.method==='POST'&&u.pathname.endsWith('/compartir')){
+    e.respondWith((async()=>{
+      try{
+        const fd=await e.request.formData();
+        const f=fd.getAll('archivo').find(x=>x&&typeof x.text==='function');
+        if(f){
+          const c=await caches.open('compartido-plan-accion');
+          await c.put('./compartido.html',new Response(await f.text(),{headers:{'Content-Type':'text/html; charset=utf-8'}}));
+        }
+      }catch(err){}
+      return Response.redirect('./?importar=1',303);
+    })());
+    return;
+  }
   // Mapa satelital, tipografías, etc.: van directo a internet
   if(e.request.method!=='GET'||u.origin!==location.origin)return;
   e.respondWith(

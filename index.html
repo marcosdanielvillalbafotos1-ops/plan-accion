@@ -1053,7 +1053,7 @@ const EMBEDDED_DATA = null; /* @@EMBEDDED_DATA@@ */
 const CLEAN_TEMPLATE='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
 
 /* Versión de la app: la completa publicar.js al publicar ("dev" = copia de trabajo sin publicar) */
-const APP_VERSION = {"v":"1.6","n":7,"fecha":"2026-10-24","novedades":"Logo de Don José en la pantalla inicial y en el ícono de la app"}; /* @@APP_VERSION@@ */
+const APP_VERSION = {"v":"1.7","n":8,"fecha":"2026-10-24","novedades":"Archivos recibidos por WhatsApp: muestran solo su visita y se pueden compartir directo a la app"}; /* @@APP_VERSION@@ */
 
 /* ━━━━ CONFIG ━━━━ */
 const RETIROS = {
@@ -1086,7 +1086,15 @@ function openDB(){
   });
   return _dbp;
 }
+/* Modo archivo: un .html recibido abierto desde WhatsApp (o como archivo) muestra SOLO su visita.
+   No usa la memoria del celular de esa "app aparte" (ahí quedan datos de otros archivos abiertos antes):
+   todo vive en memoria mientras está abierto. Para guardarlo de verdad se manda a la app instalada. */
+const MODO_ARCHIVO=!!EMBEDDED_DATA&&abiertaSinOrigenSeguro();
+const _mem=new Map();
+const _copia=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
+
 async function idbGet(key){
+  if(MODO_ARCHIVO)return _copia(_mem.get(key));
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1097,6 +1105,7 @@ async function idbGet(key){
   }catch(e){return undefined;}
 }
 async function idbSet(key,val){
+  if(MODO_ARCHIVO){_mem.set(key,_copia(val));return;}
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1108,6 +1117,7 @@ async function idbSet(key,val){
   }catch(e){/* quota or unsupported — ignore, data stays in memory this session */}
 }
 async function idbDel(key){
+  if(MODO_ARCHIVO){_mem.delete(key);return;}
   try{
     const db=await openDB();
     return await new Promise((res,rej)=>{
@@ -1120,6 +1130,7 @@ async function idbDel(key){
 }
 // Migración de una sola vez: si IndexedDB está vacío pero localStorage tiene datos viejos, copiarlos.
 async function migrateOldStorage(){
+  if(MODO_ARCHIVO)return;
   for(const key of ['dja_pa','dja_draft']){
     const existing=await idbGet(key);
     if(existing===undefined){
@@ -1278,6 +1289,16 @@ function fillDatalists(){
     if(!r||r.abierta) await upsertVisitInHistory(draft,true);
   }
   await consolidateOpenVisits();
+  // Archivo compartido desde WhatsApp a la app instalada: lo dejó el service worker, se importa
+  if(new URLSearchParams(location.search).has('importar')){
+    history.replaceState(history.state,'',location.pathname);
+    try{
+      const c=await caches.open('compartido-plan-accion');
+      const r=await c.match('./compartido.html');
+      if(r){ await c.delete('./compartido.html'); await importarVisitaTexto(await r.text()); }
+      else toast('No llegó ningún archivo para importar');
+    }catch(e){toast('No se pudo leer el archivo compartido');}
+  }
   refreshHomeBadge();
   // Ya instalada (abierta desde el ícono): el botón de instalar no aporta nada
   if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)document.getElementById('btn-instalar').style.display='none';
@@ -1370,7 +1391,9 @@ async function checkOrigen(){
   const sinGps=abiertaSinOrigenSeguro();
   if(!sinGps&&guarda)return;
   const el=document.getElementById('origin-warn');
-  el.querySelector('span').textContent=!guarda
+  el.querySelector('span').textContent=MODO_ARCHIVO
+    ? '📄 Archivo recibido: acá ves solo esta visita y los cambios no quedan guardados. Para sumarla a tu app: en WhatsApp mantené apretado el archivo → Compartir → "Plan Acción".'
+    : !guarda
     ? '⚠️ Abierta desde WhatsApp: lo que cargues NO se guarda en el celular y el GPS no funciona. Usá "📤 Compartir" o el PDF antes de cerrar.'
     : '⚠️ Abierta desde WhatsApp: el GPS no funciona así. Abrí la app desde su link web o el ícono instalado, y cargá este archivo con ⚙️ → "Importar visita recibida".';
   el.style.display='flex';
@@ -2668,14 +2691,18 @@ function triggerRestore(){document.getElementById('restore-input').click();}
 function triggerImportVisita(){document.getElementById('import-visita-input').click();}
 async function handleImportVisita(ev){
   const f=ev.target.files[0]; ev.target.value=''; if(!f)return;
-  const txt=await f.text();
+  await importarVisitaTexto(await f.text());
+}
+// También la usa la app instalada cuando le comparten el .html desde WhatsApp (?importar=1)
+async function importarVisitaTexto(txt){
   const m=/const EMBEDDED_DATA = ([\s\S]*?); \/\* @@EMBEDDED_DATA@@ \*\//.exec(txt);
   let d=null;
   try{ d=m&&JSON.parse(m[1].replace(/<\\!--/g,'<!--')); }catch(e){}
   if(!d||!d.sel||!d.tasks){toast('Ese archivo no trae una visita de esta app');return;}
   const id=d.visitId||legacyVisitId(d);
   const rec=normalizeHistRecord({id,estanciaCode:d.sel.code,estanciaName:d.sel.name,date:d.visitDate,
-    iso:d.visitISO||parseEsDate(d.visitDate),tasks:JSON.parse(JSON.stringify(d.tasks)),checklist:d.checklist||{}});
+    iso:d.visitISO||parseEsDate(d.visitDate),tasks:JSON.parse(JSON.stringify(d.tasks)),checklist:d.checklist||{},
+    abierta:false}); // entra como finalizada: no compite con la visita abierta propia de esa estancia
   const hist=(await idbGet('dja_pa'))||[];
   const i=hist.findIndex(v=>v.id===id);
   const maxUpd=v=>Math.max(0,...['ganaderia','infraestructura'].flatMap(k=>(v.tasks[k]||[]).map(t=>t.updatedAt||0)));

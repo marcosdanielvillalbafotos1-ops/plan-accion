@@ -9,6 +9,26 @@
   "orientation": "portrait",
   "background_color": "#0b2114",
   "theme_color": "#0b2114",
+  "share_target": {
+    "action": "./compartir",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "archivo",
+          "accept": [
+            "text/html",
+            ".html",
+            ".htm",
+            "application/octet-stream"
+          ]
+        }
+      ]
+    }
+  },
   "icons": [
     {
       "src": "icon-192.png",
